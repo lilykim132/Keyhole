@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Keyhole: landlord scores from past student tenants near CMU and Pitt.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<title>Keyhole — Know your landlord before you sign</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<script src="vendor/leaflet/leaflet.js"></script>
+<style>
+:root{
+  --ink:#1B1916; --muted:#6E675F; --faint:#A39B91; --line:#ECE5DC;
+  --bg:#FFFFFF; --cream:#F5F0E9; --cream2:#FAF7F2;
+  --terra:#D2492F; --terra-d:#B03A23; --terra-soft:#FBE4DE;
+  --accent:#8B3A7E; --accent-d:#722E67; --accent-soft:#F5E6F1;
+  --green:#1E5A43; --green-soft:#DFECE5;
+  --amber:#E2A048; --amber-soft:#FBEBD2;
+  --water:#DCE7EC; --park:#E3EDDF;
+  --r:18px; --shadow:0 1px 2px rgba(27,25,22,.04),0 8px 24px rgba(27,25,22,.06);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:Inter,system-ui,sans-serif;color:var(--ink);background:var(--bg);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4,.tight{font-family:"Inter Tight",Inter,sans-serif;letter-spacing:-.02em}
+button{font:inherit;cursor:pointer;border:0;background:none;color:inherit}
+input,select,textarea{font:inherit;color:inherit}
+a{color:inherit;text-decoration:none}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+
+/* nav */
+.ribbon{background:var(--cream);color:var(--muted);font-size:12.5px;text-align:center;padding:7px 16px}
+.ribbon b{color:var(--ink);font-weight:600}
+nav.top{position:sticky;top:0;z-index:40;background:rgba(255,255,255,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+nav.top .wrap{display:flex;align-items:center;gap:28px;height:64px}
+.logo{display:flex;align-items:center;gap:8px;font-family:"Inter Tight",Inter,system-ui,sans-serif;font-weight:600;font-size:20px;color:var(--accent)}
+.navlinks{display:flex;gap:4px;flex:1}
+.navlinks a{padding:8px 12px;border-radius:999px;color:var(--muted);font-weight:500;font-size:14.5px}
+.navlinks a:hover{color:var(--ink);background:var(--cream2)}
+.navlinks a.on{color:var(--ink);background:var(--cream)}
+.campus{display:flex;background:var(--cream);border-radius:999px;padding:3px}
+.campus button{padding:6px 12px;border-radius:999px;font-size:13px;font-weight:600;color:var(--muted)}
+.campus button.on{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:11px 18px;border-radius:999px;font-weight:600;font-size:14.5px;transition:.15s}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-d)}
+.btn-ghost{background:var(--cream);color:var(--ink)}
+.btn-ghost:hover{background:#EDE6DC}
+.btn-line{border:1px solid var(--line);background:#fff}
+.btn-line:hover{border-color:#D8CFC4}
+.btn-green{background:var(--green);color:#fff}
+.menu-btn{display:none}
+
+/* score pill */
+.score{display:inline-grid;place-items:center;width:46px;height:46px;border-radius:50%;font-family:"Inter Tight",Inter,system-ui,sans-serif;font-weight:600;font-size:16px;color:#fff;flex:none}
+.score.lg{width:88px;height:88px;font-size:34px}
+.score.sm{width:34px;height:34px;font-size:13px}
+.great{background:var(--green)} .mixed{background:var(--amber)} .poor{background:var(--terra)} .none{background:#CFC7BC}
+.label{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600}
+.label.great{background:var(--green-soft);color:var(--green)}
+.label.mixed{background:var(--amber-soft);color:#9A6413}
+.label.poor{background:var(--terra-soft);color:var(--terra-d)}
+.label.none{background:var(--cream);color:var(--muted)}
+.chip{display:inline-block;padding:4px 10px;border-radius:999px;background:var(--cream2);border:1px solid var(--line);font-size:12px;color:var(--muted)}
+
+/* home */
+.hero{padding:72px 0 56px;display:grid;grid-template-columns:1.15fr .85fr;gap:56px;align-items:center}
+.hero h1{font-size:64px;line-height:1.02;font-weight:700}
+.hero h1 em{font-style:normal;color:var(--accent)}
+.hero p.lead{font-size:18px;color:var(--muted);margin:20px 0 32px;max-width:520px}
+.searchbox{background:#fff;border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);padding:8px;max-width:560px}
+.stabs{display:flex;gap:4px;padding:4px 4px 8px}
+.stabs button{padding:7px 14px;border-radius:999px;font-size:13.5px;font-weight:600;color:var(--muted)}
+.stabs button.on{background:var(--ink);color:#fff}
+.srow{display:flex;gap:8px;align-items:center;background:var(--cream2);border-radius:16px;padding:6px 6px 6px 16px}
+.srow input{flex:1;border:0;background:none;outline:none;font-size:16px;padding:10px 0;min-width:0}
+.suggest{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;font-size:13px;color:var(--muted);align-items:center}
+.suggest button{padding:5px 11px;border-radius:999px;border:1px solid var(--line);font-size:13px;color:var(--ink)}
+.suggest button:hover{background:var(--cream2)}
+.stack{background:var(--cream);border-radius:28px;padding:22px;display:flex;flex-direction:column;gap:12px}
+.stack .cap{font-size:13px;color:var(--muted);padding:0 4px 4px}
+.mini{background:#fff;border-radius:16px;padding:16px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px;transition:.2s}
+.mini:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
+.mini h4{font-size:17px;font-weight:600}
+.mini .sub{font-size:13px;color:var(--muted);margin:2px 0 8px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;padding:8px 0 64px}
+.stat{border-top:2px solid var(--ink);padding-top:16px}
+.stat b{font-family:"Inter Tight",Inter,system-ui,sans-serif;font-size:44px;font-weight:600;letter-spacing:-.03em;display:block;line-height:1.1}
+.stat span{color:var(--muted);font-size:14.5px}
+.src{font-size:12px;color:var(--faint);margin-top:-48px;padding-bottom:64px}
+section.block{padding:56px 0;border-top:1px solid var(--line)}
+.sechead{display:flex;justify-content:space-between;align-items:end;margin-bottom:24px;gap:16px}
+.sechead h2{font-size:32px;font-weight:600}
+.sechead p{color:var(--muted)}
+.lgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.lltile{border:1px solid var(--line);border-radius:var(--r);padding:20px;display:flex;flex-direction:column;gap:14px;background:#fff;transition:.2s}
+.lltile:hover{box-shadow:var(--shadow);transform:translateY(-2px)}
+.lltile h4{font-size:17px;font-weight:600;line-height:1.25}
+.lltile .sub{font-size:13px;color:var(--muted)}
+.lltile q{font-size:13.5px;color:var(--ink);quotes:"\201C" "\201D";display:block;padding-top:12px;border-top:1px solid var(--line)}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.step{background:var(--cream2);border-radius:var(--r);padding:28px}
+.step .n{width:32px;height:32px;border-radius:50%;background:#fff;display:grid;place-items:center;font-weight:600;font-size:14px;margin-bottom:28px;border:1px solid var(--line)}
+.step h3{font-size:20px;font-weight:600;margin-bottom:6px}
+.step p{color:var(--muted);font-size:14.5px}
+.cta{background:var(--accent);color:#fff;border-radius:28px;padding:48px;display:flex;justify-content:space-between;align-items:center;gap:24px;margin:56px 0}
+.cta h2{font-size:34px;font-weight:600;max-width:560px;line-height:1.15}
+.cta p{opacity:.8;margin-top:8px}
+.cta .btn{background:#fff;color:var(--accent)}
+footer{border-top:1px solid var(--line);padding:32px 0 48px;color:var(--muted);font-size:13px}
+footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+footer a{text-decoration:underline;text-underline-offset:3px}
+
+/* explore */
+.filters{position:sticky;top:64px;z-index:30;background:#fff;border-bottom:1px solid var(--line)}
+.filters .wrap{display:flex;gap:10px;align-items:center;padding-top:12px;padding-bottom:12px;flex-wrap:wrap}
+.fsel{position:relative}
+.fsel select{appearance:none;border:1px solid var(--line);border-radius:999px;padding:8px 32px 8px 14px;background:#fff;font-size:13.5px;font-weight:500;cursor:pointer}
+.fsel::after{content:"";position:absolute;right:14px;top:50%;width:6px;height:6px;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:translateY(-70%) rotate(45deg);pointer-events:none}
+.fsel select.set{background:var(--ink);color:#fff;border-color:var(--ink)}
+.fsel:has(select.set)::after{border-color:#fff}
+.sortpill{margin-left:auto}
+.explore{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px;padding-top:20px;padding-bottom:40px}
+.resultsHead{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px}
+.resultsHead h2{font-size:22px;font-weight:600}
+.resultsHead span{color:var(--muted);font-size:13.5px}
+.list{display:flex;flex-direction:column;gap:12px}
+.lcard{display:grid;grid-template-columns:112px 1fr auto;gap:16px;align-items:center;border:1px solid var(--line);border-radius:var(--r);padding:12px;background:#fff;cursor:pointer;transition:.15s;text-align:left;width:100%}
+.lcard:hover,.lcard.hl{border-color:#D6CCBF;box-shadow:var(--shadow)}
+.thumb{width:112px;height:92px;border-radius:12px;overflow:hidden;display:block}
+.lcard .price{font-family:"Inter Tight",Inter,system-ui,sans-serif;font-weight:600;font-size:18px}
+.lcard .price small{font-family:Inter,system-ui,sans-serif;font-weight:500;font-size:13px;color:var(--muted)}
+.lcard .sub{font-size:13px;color:var(--muted);margin-top:2px}
+.lcard .ll{font-size:13.5px;font-weight:600;margin-top:10px;display:flex;align-items:center;gap:8px}
+.fav{font-size:11.5px;font-weight:600;color:var(--green);background:var(--green-soft);padding:2px 8px;border-radius:999px}
+.lcard .right{display:flex;flex-direction:column;align-items:center;gap:4px;padding-right:6px}
+.lcard .right small{font-size:11px;color:var(--muted)}
+.mapbox{position:sticky;top:132px;height:calc(100vh - 160px);min-height:420px;border-radius:24px;overflow:hidden;background:var(--cream2);border:1px solid var(--line)}
+
+.maplegend{position:absolute;left:14px;bottom:14px;background:#fff;border-radius:12px;padding:8px 12px;font-size:12px;color:var(--muted);display:flex;gap:12px;box-shadow:var(--shadow)}
+.maplegend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:0}
+.pin{cursor:pointer;transition:transform .15s}
+.pin.hl circle.dot{stroke:var(--ink);stroke-width:3}
+.kmap{width:100%;height:100%}
+.leaflet-container{background:#F1ECE4;font-family:Inter,system-ui,sans-serif}
+.leaflet-control-attribution{font-size:10px;background:rgba(255,255,255,.75)!important;color:var(--muted)}
+.leaflet-control-zoom{border:0!important;box-shadow:var(--shadow)!important;border-radius:12px!important;overflow:hidden}
+.leaflet-control-zoom a{color:var(--ink)!important;width:34px!important;height:34px!important;line-height:34px!important}
+.kpin{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:#fff;font:700 11px/1 Inter,sans-serif;border:2.5px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.25);cursor:pointer;transition:transform .15s}
+.kpin.hl{transform:scale(1.25);outline:2px solid var(--ink);outline-offset:1px}
+.cpin{padding:5px 10px;border-radius:999px;background:#fff;border:1.5px solid var(--ink);font:700 12px/1 Inter,sans-serif;color:var(--ink);white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.15);transform:translate(-50%,-50%);display:inline-block}
+.cpin.on{background:var(--ink);color:#fff}
+.hlabel{transform:translate(-50%,-50%);white-space:nowrap;text-align:center;font:600 10px/1.2 Inter,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#9C9388;pointer-events:none;text-shadow:0 0 3px #fff,0 0 3px #fff}
+.mlabel{transform:translate(-50%,-50%);white-space:nowrap;text-align:center;font:600 11px/1.15 Inter,sans-serif;pointer-events:none}
+.mlabel b{display:block;font-size:15px;font-family:"Inter Tight",Inter,sans-serif}
+.mlabel.dark{color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.35)} .mlabel.light{color:var(--ink);text-shadow:0 0 3px #fff,0 0 3px #fff}
+.parklabel{transform:translate(-50%,-50%);white-space:nowrap;font:600 9.5px/1 Inter,sans-serif;letter-spacing:.08em;color:#7C9A73;pointer-events:none}
+.leaflet-tooltip.htip{background:var(--ink);color:#fff;border:0;border-radius:8px;font:600 12px Inter,sans-serif;padding:5px 9px;box-shadow:none}
+.leaflet-tooltip.htip::before{display:none}
+.empty{padding:48px 24px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:var(--r)}
+
+/* landlord */
+.back{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:14px;font-weight:500;margin:28px 0 20px}
+.back:hover{color:var(--ink)}
+.llhead{display:grid;grid-template-columns:1fr 380px;gap:32px;align-items:start}
+.llhead h1{font-size:44px;font-weight:700;line-height:1.05}
+.llhead .meta{color:var(--muted);margin-top:8px}
+.scorecard{background:var(--cream2);border:1px solid var(--line);border-radius:24px;padding:24px}
+.scoretop{display:flex;align-items:center;gap:18px;padding-bottom:20px;border-bottom:1px solid var(--line);margin-bottom:18px}
+.scoretop .big{font-family:"Inter Tight",Inter,system-ui,sans-serif;font-size:56px;font-weight:600;line-height:1;letter-spacing:-.03em}
+.bars{display:flex;flex-direction:column;gap:14px}
+.bar{display:grid;grid-template-columns:120px 1fr 32px;gap:12px;align-items:center;font-size:14px}
+.bar .track{height:8px;background:#EAE3D9;border-radius:99px;overflow:hidden}
+.bar .fill{height:100%;border-radius:99px}
+.bar b{text-align:right;font-weight:600}
+.again{margin-top:18px;padding-top:16px;border-top:1px solid var(--line);font-size:14px;color:var(--muted)}
+.again b{color:var(--ink)}
+.tabsec{margin-top:40px;display:grid;grid-template-columns:1fr 380px;gap:32px}
+.reviews{display:flex;flex-direction:column;gap:12px}
+.rev{border:1px solid var(--line);border-radius:var(--r);padding:20px}
+.rev .rtop{display:flex;justify-content:space-between;gap:12px;font-size:13px;color:var(--muted);margin-bottom:10px;align-items:center}
+.rev p{font-size:15.5px}
+.rev .rcats{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+.verified{display:inline-flex;align-items:center;gap:5px;font-weight:600;color:var(--green)}
+.pending{display:inline-flex;align-items:center;gap:5px;font-weight:600;color:#9A6413}
+.newtag{font-size:11px;font-weight:600;background:var(--accent-soft);color:var(--accent-d);padding:2px 8px;border-radius:99px}
+.side h3{font-size:18px;font-weight:600;margin-bottom:12px}
+.side .lcard{grid-template-columns:72px 1fr;padding:10px}
+.side .thumb{width:72px;height:60px}
+.side .lcard .right{display:none}
+
+/* directory */
+.dirsearch{display:flex;gap:12px;align-items:center;margin:32px 0 20px;flex-wrap:wrap}
+.dirsearch h1{font-size:40px;font-weight:700;flex:1}
+.inputpill{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:999px;padding:4px 6px 4px 16px;min-width:320px;background:#fff}
+.inputpill input{border:0;outline:none;flex:1;padding:8px 0;background:none}
+.dirlist{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;margin-bottom:56px}
+.dirrow{display:grid;grid-template-columns:48px 1.6fr 1fr 1fr 1fr 24px;gap:16px;align-items:center;padding:16px 20px;border-bottom:1px solid var(--line);text-align:left;width:100%;background:#fff}
+.dirrow:last-child{border-bottom:0}
+.dirrow:hover{background:var(--cream2)}
+.dirrow h4{font-size:16px;font-weight:600}
+.dirrow .sub{font-size:13px;color:var(--muted)}
+.dirrow .kv{font-size:13px;color:var(--muted)} .dirrow .kv b{display:block;color:var(--ink);font-size:14px;font-weight:600}
+.dirhead{display:grid;grid-template-columns:48px 1.6fr 1fr 1fr 1fr 24px;gap:16px;padding:10px 20px;background:var(--cream2);font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--line)}
+
+/* neighborhoods */
+.nbgrid{display:grid;grid-template-columns:340px 1fr;gap:28px;padding:32px 0 56px}
+.panel{background:var(--cream2);border:1px solid var(--line);border-radius:24px;padding:24px;align-self:start;position:sticky;top:88px}
+.panel h1{font-size:30px;font-weight:700;line-height:1.1;margin-bottom:6px}
+.panel>p{color:var(--muted);font-size:14px;margin-bottom:24px}
+.ctrl{margin-bottom:22px}
+.ctrl .lab{display:flex;justify-content:space-between;font-size:14px;font-weight:600;margin-bottom:10px}
+.ctrl .lab span{font-family:"Inter Tight",Inter,system-ui,sans-serif;font-size:16px}
+input[type=range]{width:100%;appearance:none;height:6px;border-radius:99px;background:linear-gradient(to right,var(--accent) var(--p,50%),#E7DFD4 var(--p,50%));outline:none}
+input[type=range]::-webkit-slider-thumb{appearance:none;width:20px;height:20px;border-radius:50%;background:#fff;border:2px solid var(--accent);cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.15)}
+input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:#fff;border:2px solid var(--accent);cursor:pointer}
+.prios{display:flex;flex-wrap:wrap;gap:8px}
+.prios button{padding:7px 13px;border-radius:999px;border:1px solid var(--line);background:#fff;font-size:13.5px;font-weight:500}
+.prios button.on{background:var(--green);border-color:var(--green);color:#fff}
+.hint{font-size:12px;color:var(--faint);margin-top:8px}
+.nbmap{border-radius:24px;overflow:hidden;background:var(--cream2);border:1px solid var(--line);height:520px}
+
+.nblist{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}
+.nbcard{border:1px solid var(--line);border-radius:var(--r);padding:18px;display:flex;flex-direction:column;gap:8px;background:#fff}
+.nbcard .top{display:flex;justify-content:space-between;align-items:center}
+.nbcard h4{font-size:17px;font-weight:600}
+.match{font-family:"Inter Tight",Inter,system-ui,sans-serif;font-weight:600;color:var(--green)}
+.nbcard p{font-size:13.5px;color:var(--muted)}
+.nbcard .facts{display:flex;gap:6px;flex-wrap:wrap}
+.nbcard .btn{align-self:flex-start;padding:8px 14px;font-size:13px;margin-top:4px}
+.nbcard.top1{border-color:var(--green);box-shadow:0 0 0 1px var(--green)}
+
+/* review form */
+.formwrap{max-width:720px;margin:0 auto;padding:40px 24px 72px}
+.formwrap h1{font-size:40px;font-weight:700;line-height:1.08}
+.formwrap>p{color:var(--muted);margin:10px 0 28px;font-size:16px}
+.fcard{border:1px solid var(--line);border-radius:24px;padding:28px;display:flex;flex-direction:column;gap:24px}
+.field label.t{display:block;font-weight:600;font-size:14.5px;margin-bottom:8px}
+.field .help{font-size:12.5px;color:var(--muted);margin-top:6px}
+.field input[type=text],.field select,.field textarea{width:100%;border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:#fff;outline:none;font-size:15px}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.field textarea{min-height:120px;resize:vertical}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.rate{display:grid;grid-template-columns:1fr auto;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+.rate:last-child{border-bottom:0}
+.rate .nm{font-size:14.5px;font-weight:500}
+.rate .nm small{display:block;color:var(--muted);font-weight:400;font-size:12.5px}
+.dots{display:flex;gap:6px}
+.dots button{width:36px;height:36px;border-radius:50%;border:1px solid var(--line);font-weight:600;font-size:14px;color:var(--muted);background:#fff}
+.dots button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.dots button:hover{border-color:var(--accent)}
+.yn{display:flex;gap:8px}
+.yn button{flex:1;padding:12px;border:1px solid var(--line);border-radius:12px;font-weight:600;background:#fff}
+.yn button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.err{color:var(--terra-d);font-size:13px;font-weight:500}
+.done{text-align:center;padding:48px 24px}
+.done .tick{width:64px;height:64px;border-radius:50%;background:var(--green-soft);color:var(--green);display:grid;place-items:center;margin:0 auto 20px}
+
+/* modal */
+.scrim{position:fixed;inset:0;background:rgba(27,25,22,.38);z-index:80;display:none;align-items:center;justify-content:center;padding:20px}
+.scrim.open{display:flex}
+.modal{background:#fff;border-radius:28px;max-width:560px;width:100%;max-height:92vh;overflow:auto;box-shadow:0 24px 64px rgba(0,0,0,.2)}
+.modal .hero-img{height:200px;position:relative}
+.modal .hero-img > svg{width:100%;height:100%;display:block}
+.modal .x{position:absolute;top:14px;right:14px;width:36px;height:36px;border-radius:50%;background:#fff;display:grid;place-items:center;box-shadow:var(--shadow)}
+.modal .body{padding:24px 28px 28px}
+.modal h2{font-size:28px;font-weight:600}
+.modal .sub{color:var(--muted);margin-top:2px}
+.facts3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:18px 0}
+.facts3 div{background:var(--cream2);border-radius:12px;padding:10px 12px;font-size:12px;color:var(--muted)}
+.facts3 b{display:block;color:var(--ink);font-size:15px;font-weight:600}
+.llbox{border:1px solid var(--line);border-radius:18px;padding:16px;display:flex;gap:14px;align-items:center;margin-bottom:18px}
+.llbox h4{font-size:16px;font-weight:600}
+.llbox .sub{font-size:13px}
+.llbox .mini-bars{display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;font-size:12.5px;color:var(--muted);margin-top:8px}
+.llbox .mini-bars b{color:var(--ink)}
+.mactions{display:flex;gap:10px}
+.mactions .btn{flex:1}
+.toast{opacity:0;pointer-events:none;position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(120px);background:var(--ink);color:#fff;padding:12px 18px;border-radius:999px;font-size:14px;font-weight:500;z-index:99;transition:.3s;box-shadow:0 8px 24px rgba(0,0,0,.2)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* insights */
+.ins{padding:40px 0 72px}
+.ins h1{font-size:40px;font-weight:700}
+.ins>p{color:var(--muted);margin:8px 0 28px}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px}
+.kpi{border:1px solid var(--line);border-radius:var(--r);padding:22px}
+.kpi .k{font-size:13px;color:var(--muted);font-weight:500}
+.kpi .v{font-family:"Inter Tight",Inter,system-ui,sans-serif;font-size:40px;font-weight:600;letter-spacing:-.03em;margin:6px 0}
+.kpi .pass{font-size:12.5px;color:var(--muted)}
+.tbl{width:100%;border-collapse:collapse;font-size:14px}
+.tbl th{text-align:left;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;padding:10px 12px;border-bottom:1px solid var(--line)}
+.tbl td{padding:12px;border-bottom:1px solid var(--line);vertical-align:top}
+
+@media (max-width:960px){
+  .hero{grid-template-columns:1fr;gap:32px;padding-top:40px}
+  .hero h1{font-size:46px}
+  .lgrid{grid-template-columns:repeat(2,1fr)}
+  .explore{grid-template-columns:1fr}
+  .mapbox{position:relative;top:0;height:340px;min-height:0;order:-1}
+  .llhead,.tabsec{grid-template-columns:1fr}
+  .nbgrid{grid-template-columns:1fr}
+  .panel{position:relative;top:0}
+  .dirhead{display:none}
+  .dirrow{grid-template-columns:48px 1fr 24px}
+  .dirrow .kv{display:none}
+}
+@media (max-width:720px){
+  .navlinks{display:none;position:absolute;top:64px;left:0;right:0;background:#fff;flex-direction:column;padding:8px 16px 16px;border-bottom:1px solid var(--line)}
+  .navlinks.open{display:flex}
+  .menu-btn{display:grid;place-items:center;width:40px;height:40px;border-radius:50%;background:var(--cream);margin-left:auto}
+  nav.top .wrap{gap:12px}
+  nav .btn-primary.wr{display:none}
+  .stats,.steps,.kpis{grid-template-columns:1fr}
+  .lgrid,.nblist,.two{grid-template-columns:1fr}
+  .cta{flex-direction:column;align-items:flex-start;padding:32px}
+  .lcard{grid-template-columns:84px 1fr auto}
+  .thumb{width:84px;height:76px}
+  .sortpill{margin-left:0}
+  .filters .wrap{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+  .filters .wrap::-webkit-scrollbar{display:none}
+  .fsel{flex:none}
+  .lcard{gap:12px}
+  .lcard .price{font-size:16px}
+  .lcard .price small{display:block}
+  .lcard .right small{display:none}
+  .lcard .right .score{width:38px;height:38px;font-size:14px}
+  .resultsHead h2{font-size:19px}
+  .mapbox{height:280px}
+  .inputpill{min-width:0;width:100%}
+  .hero h1{font-size:40px}
+  .src{margin-top:-40px}
+}
+</style>
+</head>
+<body>
+<div class="ribbon"><b>MVP preview</b> · Landlords, listings and starting reviews are sample data for testing.</div>
+<nav class="top">
+  <div class="wrap">
+    <a href="#home" class="logo" aria-label="Keyhole home">
+      <svg width="22" height="26" viewBox="0 0 22 26"><circle cx="11" cy="8" r="7" fill="#8B3A7E"/><path d="M7.5 12h7l1.5 13h-10z" fill="#8B3A7E"/></svg>Keyhole
+    </a>
+    <div class="navlinks" id="navlinks">
+      <a href="#explore" data-nav="explore">Find a place</a>
+      <a href="#landlords" data-nav="landlords">Landlords</a>
+      <a href="#neighborhoods" data-nav="neighborhoods">Neighborhood match</a>
+    </div>
+    <div class="campus" id="campusToggle" role="group" aria-label="Campus">
+      <button data-c="cmu" class="on">CMU</button><button data-c="pitt">Pitt</button>
+    </div>
+    <a href="#review" class="btn btn-primary wr">Write a review</a>
+    <button class="menu-btn" id="menuBtn" aria-label="Menu"><svg width="18" height="18" viewBox="0 0 18 18"><path d="M2 5h14M2 9h14M2 13h14" stroke="#1B1916" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+  </div>
+</nav>
+<main id="app"></main>
+<footer>
+  <div class="wrap">
+    <div>Keyhole · Built by students for students near CMU and Pitt · 70-415 MVP</div>
+    <div><a href="#review">Write a review</a> &nbsp;·&nbsp; <a href="#insights">Team insights</a></div>
+  </div>
+</footer>
+<div class="scrim" id="scrim"><div class="modal" id="modal" role="dialog" aria-modal="true"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ---------------- sample data ---------------- */
+const CAMPUS = {
+  cmu:{name:'Carnegie Mellon', short:'CMU', x:330, y:262, ll:[40.4433,-79.9436]},
+  pitt:{name:'Pitt', short:'Pitt', x:226, y:232, ll:[40.4443,-79.9532]}
+};
+const PRIOS = [['quiet','Quiet'],['groceries','Groceries nearby'],['nocar','No car needed'],['nightlife','Nightlife'],['cafes','Cafés'],['parks','Parks'],['budget','Lower rent']];
+const NB = [
+ {id:'sq-hill-n', name:'Squirrel Hill North', x:450,y:236,r:56, rent:900, cmu:[13,'bus'], pitt:[20,'bus'], tags:['quiet','groceries','nocar','cafes','parks'], blurb:'Quiet streets and a busy Forbes/Murray strip; the 61s get you to campus in 12–15 min.'},
+ {id:'shadyside', name:'Shadyside', x:378,y:142,r:54, rent:980, cmu:[16,'bus'], pitt:[18,'bus'], tags:['quiet','groceries','cafes','nightlife','nocar'], blurb:'Walkable Walnut St. shops and cafés, older homes split into apartments.'},
+ {id:'n-oakland', name:'North Oakland', x:252,y:178,r:44, rent:870, cmu:[12,'bus'], pitt:[8,'walk'], tags:['nocar','groceries','cafes'], blurb:'Big pre-war buildings on leafy blocks; a quick walk to Pitt, short bus to CMU.'},
+ {id:'c-oakland', name:'Central Oakland', x:230,y:286,r:46, rent:760, cmu:[9,'walk'], pitt:[6,'walk'], tags:['nocar','nightlife','budget'], blurb:'The classic student neighborhood — walk to both campuses, lots of houses split by the room.'},
+ {id:'s-oakland', name:'South Oakland', x:196,y:352,r:38, rent:690, cmu:[15,'walk'], pitt:[12,'walk'], tags:['budget','nocar'], blurb:'Cheaper rows near the river, hilly walk up to campus.'},
+ {id:'sq-hill-s', name:'Squirrel Hill South', x:470,y:346,r:44, rent:800, cmu:[18,'bus'], pitt:[25,'bus'], tags:['quiet','parks','groceries'], blurb:'Residential and calm, next to Schenley and Frick parks.'},
+ {id:'bloomfield', name:'Bloomfield', x:258,y:84,r:40, rent:780, cmu:[20,'bus'], pitt:[15,'bus'], tags:['cafes','nightlife','groceries','budget'], blurb:'Liberty Ave. restaurants and bars, row houses at a good price.'},
+ {id:'greenfield', name:'Greenfield', x:352,y:388,r:36, rent:680, cmu:[17,'bus'], pitt:[24,'bus'], tags:['quiet','parks','budget'], blurb:'Hilltop houses, quiet and cheaper; you will lean on the bus.'},
+ {id:'lawrenceville', name:'Lawrenceville', x:132,y:58,r:42, rent:1050, cmu:[28,'bus'], pitt:[22,'bus'], tags:['nightlife','cafes'], blurb:'Butler St. food and nightlife; newer buildings, longer commute.'}
+];
+const NB_LL = {"sq-hill-n": [40.44321, -79.92885], "shadyside": [40.45348, -79.93236], "n-oakland": [40.44725, -79.95313], "c-oakland": [40.43866, -79.95435], "s-oakland": [40.43326, -79.95927], "sq-hill-s": [40.43134, -79.92092], "bloomfield": [40.46066, -79.94645], "greenfield": [40.42447, -79.93781], "lawrenceville": [40.47311, -79.95431]};
+const NB_GEO = {lawrenceville:['Lower Lawrenceville','Central Lawrenceville','Upper Lawrenceville']};
+NB.forEach(n=>{n.ll=NB_LL[n.id]; n.geo=NB_GEO[n.id]||[n.name];});
+const nbById = Object.fromEntries(NB.map(n=>[n.id,n]));
+
+const CATS = [['repairs','Repairs','How fast things got fixed'],['deposit','Deposit back','Did you get it back, fairly?'],['comm','Communication','Responsive and respectful?'],['pricing','Fair pricing','Rent, fees and surprises']];
+
+const LANDLORDS = [
+ {id:'maple-row', name:'Maple Row Rentals', kind:'Property manager', buildings:12, seed:{n:41, overall:4.6, repairs:4.7, deposit:4.5, comm:4.6, pricing:3.8, again:.9},
+  reviews:[['Fixed our heat within a day in January.','cmu','2025–26',5],['Got the full deposit back in 3 weeks.','pitt','2024–25',5],['Rent is a bit higher than the block but you get what you pay for.','cmu','2025–26',4]]},
+ {id:'ellsworth', name:'Ellsworth Lane Rentals', kind:'Small landlord', buildings:5, seed:{n:12, overall:4.2, repairs:4.0, deposit:4.4, comm:4.5, pricing:4.0, again:.83},
+  reviews:[['Owner lives nearby and answers texts the same day.','cmu','2025–26',5],['Old windows, so winter gas bills were high.','pitt','2024–25',3]]},
+ {id:'beechwood', name:'Beechwood Housing Group', kind:'Property manager', buildings:9, seed:{n:18, overall:4.3, repairs:4.4, deposit:4.1, comm:4.2, pricing:4.0, again:.86},
+  reviews:[['Maintenance portal actually works. Dishwasher fixed in two days.','cmu','2025–26',4],['Charged a cleaning fee but it was in the lease.','cmu','2024–25',4]]},
+ {id:'greenfield-fam', name:'R. & T. Novak (individual)', kind:'Individual owner', buildings:2, seed:{n:5, overall:4.8, repairs:4.8, deposit:5.0, comm:4.7, pricing:4.6, again:1},
+  reviews:[['Felt like renting from family. Shoveled our walk.','cmu','2025–26',5]]},
+ {id:'fifth-forbes', name:'Fifth & Forbes Living', kind:'Property manager', buildings:7, seed:{n:33, overall:3.7, repairs:3.5, deposit:3.6, comm:3.9, pricing:3.4, again:.62},
+  reviews:[['Great location, slow on repairs during finals week.','pitt','2025–26',3],['Office staff are nice, but the AC took a month.','cmu','2024–25',3]]},
+ {id:'hilltop', name:'Hilltop Property Co.', kind:'Property manager', buildings:8, seed:{n:27, overall:3.2, repairs:2.9, deposit:3.4, comm:3.1, pricing:3.5, again:.44},
+  reviews:[['Mice in the fall, they sent someone after a couple of weeks.','pitt','2025–26',3],['Lease renewal had a surprise $150 admin fee.','cmu','2024–25',3]]},
+ {id:'panther', name:'Panther Hollow Properties', kind:'Property manager', buildings:10, seed:{n:22, overall:2.8, repairs:2.5, deposit:2.6, comm:3.0, pricing:3.1, again:.36},
+  reviews:[['Kept $400 of our deposit for “wear and tear.”','pitt','2024–25',2],['Leak under the sink for six weeks.','pitt','2025–26',2]]},
+ {id:'jdoe', name:'J. Doe (individual)', kind:'Individual owner', buildings:3, seed:{n:6, overall:2.1, repairs:1.8, deposit:2.0, comm:2.4, pricing:2.6, again:.17},
+  reviews:[['No heat for 4 days and no reply to texts.','cmu','2025–26',1],['Mold in the basement bedroom that was never treated.','pitt','2024–25',2]]}
+];
+
+const mkL = (id,ll,nb,street,price,beds,baths,cmuD,pittD,tags,dx,dy,hue)=>({id,ll,nb,street,price,beds,baths,cmuD,pittD,tags,dx,dy,hue});
+const LST_LL = {"l1": [40.44981, -79.92689], "l2": [40.44718, -79.93265], "l3": [40.45206, -79.93379], "l4": [40.4402, -79.9518], "l5": [40.44835, -79.95025], "l6": [40.435, -79.956], "l7": [40.43182, -79.95553], "l8": [40.45041, -79.9295], "l9": [40.44057, -79.933], "l10": [40.42596, -79.93508], "l11": [40.43715, -79.91215], "l12": [40.4418, -79.9565], "l13": [40.44937, -79.95191], "l14": [40.4372, -79.95], "l15": [40.4342, -79.95817], "l16": [40.46163, -79.94203]};
+const LISTINGS = [
+ mkL('l1','maple-row','sq-hill-n','Beacon St',845,2,1,1,4,['Laundry in unit','Furnished'],-12,-8,0),
+ mkL('l2','maple-row','sq-hill-n','Wightman St',910,1,1,0,2,['Laundry in building','Pets ok'],18,14,1),
+ mkL('l3','maple-row','shadyside','Ivy St',955,2,1,2,0,['Dishwasher','Laundry in unit'],-14,10,2),
+ mkL('l4','hilltop','c-oakland','Atwood St',780,3,1,0,-1,['Porch','Laundry in building'],-8,6,3),
+ mkL('l5','hilltop','n-oakland','Craig St',880,2,1,0,0,['Elevator','Heat included'],12,-10,4),
+ mkL('l6','jdoe','c-oakland','Semple St',720,2,1,1,0,['Basement storage'],16,-12,5),
+ mkL('l7','jdoe','s-oakland','Juliet St',650,4,2,0,1,['Yard','Parking'],-6,10,0),
+ mkL('l8','ellsworth','shadyside','Ellsworth Ave',990,2,1,0,1,['Dishwasher','Heat included'],16,-6,1),
+ mkL('l9','beechwood','sq-hill-n','Beechwood Blvd',875,3,2,2,0,['Laundry in unit','Parking'],10,-22,2),
+ mkL('l10','beechwood','greenfield','Greenfield Ave',690,3,1,0,1,['Yard','Pets ok'],-10,-4,3),
+ mkL('l11','greenfield-fam','sq-hill-s','Hobart St',760,2,1,0,0,['Porch','Laundry in unit'],8,-8,4),
+ mkL('l12','fifth-forbes','c-oakland','Forbes Ave',835,1,1,-2,-1,['Elevator','Gym'],-24,-16,5),
+ mkL('l13','fifth-forbes','n-oakland','Fifth Ave',900,2,2,0,-2,['Elevator','Laundry in unit'],-14,12,0),
+ mkL('l14','panther','c-oakland','Meyran Ave',740,4,2,1,0,['Porch','Basement storage'],6,22,1),
+ mkL('l15','panther','s-oakland','Dawson St',670,3,1,0,0,['Parking'],14,-4,2),
+ mkL('l16','ellsworth','bloomfield','Liberty Ave',760,2,1,0,0,['Dishwasher','Pets ok'],-4,10,3)
+];
+LISTINGS.forEach(l=>l.ll2=LST_LL[l.id]);
+
+/* ---------------- state ---------------- */
+const S = {
+  campus:'cmu',
+  f:{budget:'any', beds:'any', commute:'any', sort:'score', nb:'any'},
+  nbPrefs:{budget:900, commute:15, prios:['quiet','groceries','nocar']},
+  community:[],      // all reviews from db
+  myReviews:[],      // this viewer's review items
+  myPicks:[],
+  tour:new Set(),
+  dbState:'loading', // loading | live | offline
+  hover:null,
+  searchMode:'place',
+  dirQ:''
+};
+let DB=null, USER=null, UID=null;
+
+/* ---------------- helpers ---------------- */
+const $ = (s,el=document)=>el.querySelector(s);
+const esc = s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const tier = s=> s==null?'none': s>=4?'great': s>=3?'mixed':'poor';
+const tierWord = s=> s==null?'No reviews yet': s>=4?'Great': s>=3?'Mixed':'Poor';
+const f1 = n=> (Math.round(n*10)/10).toFixed(1);
+const slug = s=>s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40);
+const campusName = c=> c==='pitt'?'Pitt':'CMU';
+function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2600)}
+
+function commute(listing, campus=S.campus){
+  const n = nbById[listing.nb]; const [m,mode]=n[campus]; const d = campus==='cmu'?listing.cmuD:listing.pittD;
+  const min = Math.max(4,m+d); return {min, mode: (mode==='walk' && min<=16)?'walk':'bus'};
+}
+
+/* landlord aggregate = seed + community reviews */
+function allLandlords(){
+  const map = {};
+  LANDLORDS.forEach(l=>map[l.id]={...l, community:[]});
+  S.community.forEach(r=>{
+    let id = r.landlordId;
+    if(!map[id]){ map[id]={id, name:r.landlordName||'Unlisted landlord', kind:'Added by a student', buildings:null, seed:null, reviews:[], community:[]}; }
+    map[id].community.push(r);
+  });
+  return Object.values(map).map(l=>{
+    const cs = l.community, n0 = l.seed?l.seed.n:0, n=n0+cs.length;
+    const avg = k=>{ if(!n) return null; const s0=l.seed?l.seed[k]*n0:0; const s1=cs.reduce((a,r)=>a+(+r[k]||0),0); return (s0+s1)/n; };
+    const againN = (l.seed?l.seed.again*n0:0) + cs.filter(r=>r.again===true).length;
+    return {...l, n, newN:cs.length, overall:avg('overall'), repairs:avg('repairs'), deposit:avg('deposit'), comm:avg('comm'), pricing:avg('pricing'), again:n?againN/n:null};
+  });
+}
+let LLCACHE=null; function lls(){ if(!LLCACHE) LLCACHE=allLandlords(); return LLCACHE; }
+function llById(id){ return lls().find(l=>l.id===id); }
+function invalidate(){ LLCACHE=null; }
+
+/* little procedural building illustration */
+const PAL = [['#E9D9C7','#C8694B'],['#DCE6DF','#1E5A43'],['#F3E3CB','#E2A048'],['#E6DED6','#6E675F'],['#E4E0EE','#5B5A8C'],['#F0DCD5','#AE5639']];
+function thumb(l, w=112, h=92){
+  const [bg,ac]=PAL[l.hue%PAL.length]; const floors = l.beds>=3?3:2; const cols = l.beds>=4?4:3;
+  const bw=w*.56, bx=(w-bw)/2, fh=h*.17, top=h-12-floors*fh-6;
+  let win=''; for(let f=0;f<floors;f++) for(let c=0;c<cols;c++){ const ww=bw/(cols*1.8); const gap=(bw-cols*ww)/(cols+1); win+=`<rect x="${(bx+gap+c*(ww+gap)).toFixed(1)}" y="${(top+8+f*fh).toFixed(1)}" width="${ww.toFixed(1)}" height="${(fh*.5).toFixed(1)}" rx="1.5" fill="#fff" opacity=".9"/>`; }
+  const roof = l.hue%2? `<path d="M${bx-4} ${top} L${w/2} ${top-h*.16} L${bx+bw+4} ${top}Z" fill="${ac}" opacity=".9"/>` : `<rect x="${bx-3}" y="${top-6}" width="${bw+6}" height="7" rx="2" fill="${ac}" opacity=".9"/>`;
+  return `<svg class="thumb" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect width="${w}" height="${h}" fill="${bg}"/><circle cx="${w*.82}" cy="${h*.2}" r="${h*.09}" fill="#fff" opacity=".6"/><rect x="0" y="${h-12}" width="${w}" height="12" fill="${ac}" opacity=".15"/>${roof}<rect x="${bx}" y="${top}" width="${bw}" height="${h-12-top}" fill="${ac}" opacity=".85"/>${win}<rect x="${w/2-5}" y="${h-24}" width="10" height="12" rx="2" fill="#fff" opacity=".85"/></svg>`;
+}
+
+/* ---------------- map ---------------- */
+/* ---------------- real map (Leaflet + City of Pittsburgh boundaries) ---------------- */
+let GEO=null, MAP=null, NBLAYERS={}, NBLABELS={}, PINS={};
+fetch('data/pittsburgh-neighborhoods.json').then(r=>r.json()).then(g=>{GEO=g; mountMaps();}).catch(()=>{});
+const PARKS=[
+ {name:'SCHENLEY PARK', ll:[40.4325,-79.9420], ring:[[40.4392,-79.9500],[40.4398,-79.9445],[40.4372,-79.9392],[40.4330,-79.9330],[40.4280,-79.9300],[40.4240,-79.9345],[40.4250,-79.9420],[40.4290,-79.9480],[40.4340,-79.9520]]},
+ {name:'FRICK PARK', ll:[40.4360,-79.9040], ring:[[40.4470,-79.9070],[40.4440,-79.8990],[40.4350,-79.8960],[40.4270,-79.9010],[40.4250,-79.9090],[40.4320,-79.9120],[40.4410,-79.9110]]}
+];
+const ourHood = name => NB.find(n=>n.geo.includes(name));
+function newMap(el, view){
+  if(MAP){ try{MAP.remove();}catch(e){} MAP=null; }
+  NBLAYERS={}; NBLABELS={}; PINS={};
+  const m=L.map(el,{zoomControl:true,attributionControl:true,zoomSnap:.25,minZoom:12.5,maxZoom:17,maxBounds:[[40.37,-80.06],[40.52,-79.84]],scrollWheelZoom:false});
+  m.attributionControl.setPrefix(false); m.attributionControl.addAttribution('<a href="https://leafletjs.com">Leaflet</a> · Neighborhood boundaries: City of Pittsburgh');
+  m.setView(view.center, view.zoom);
+  GEO.water.forEach(r=>L.polygon(r,{stroke:false,fillColor:'#D5E3EA',fillOpacity:1,interactive:false}).addTo(m));
+  m.createPane('parks'); m.getPane('parks').style.zIndex=410; m.getPane('parks').style.pointerEvents='none';
+  if(view.parks!==false) PARKS.forEach(p=>L.polygon(p.ring,{pane:'parks',stroke:false,fillColor:'#D9E8D2',fillOpacity:.85,interactive:false,smoothFactor:2}).addTo(m));
+  PARKS.forEach(p=>L.marker(p.ll,{interactive:false,icon:L.divIcon({className:'',html:`<div class="parklabel">${p.name}</div>`,iconSize:[0,0]})}).addTo(m));
+  m.on('mouseout',()=>{});
+  MAP=m; return m;
+}
+function addHoods(m, styleFor, onClick){
+  GEO.hoods.forEach(h=>{
+    const ours=ourHood(h.name);
+    const lay=L.polygon(h.rings,{...styleFor(ours,h), smoothFactor:1}).addTo(m);
+    lay.bindTooltip(h.name,{sticky:true,className:'htip',direction:'top',offset:[0,-8]});
+    if(ours){ (NBLAYERS[ours.id]=NBLAYERS[ours.id]||[]).push(lay); lay.on('click',()=>onClick&&onClick(ours)); }
+    lay.on('mouseover',()=>lay.setStyle({weight:2}));
+    lay.on('mouseout',()=>lay.setStyle({weight:ours?1.2:.8}));
+  });
+}
+function addCampus(m){
+  Object.entries(CAMPUS).forEach(([k,c])=>L.marker(c.ll,{interactive:false,zIndexOffset:500,icon:L.divIcon({className:'',html:`<div class="cpin ${k===S.campus?'on':''}">${c.short}</div>`,iconSize:[0,0]})}).addTo(m));
+}
+const SC={great:'#1E5A43',mixed:'#E2A048',poor:'#D2492F',none:'#CFC7BC'};
+function mountExploreMap(list){
+  const el=$('#lmap'); if(!el||!GEO||!window.L) return;
+  const nbSel=S.f.nb!=='any'?nbById[S.f.nb]:null;
+  const small=el.clientWidth<520;
+  const m=newMap(el,{center:nbSel?nbSel.ll:[40.4435,-79.9395], zoom:nbSel?(small?14.5:15):(small?13:14)});
+  addHoods(m,(ours)=>({color:ours?'#D9CFC2':'#E7E0D6',weight:ours?1.2:.8,fillColor:ours&&S.f.nb===ours.id?'#F5E6F1':(ours?'#FBF8F3':'#F6F2EC'),fillOpacity:1}),
+    ours=>{ S.f.nb = S.f.nb===ours.id?'any':ours.id; render(); });
+  NB.forEach(n=>L.marker(n.ll,{interactive:false,icon:L.divIcon({className:'',html:`<div class="hlabel">${n.name.replace(' North',' N.').replace(' South',' S.')}</div>`,iconSize:[0,0]})}).addTo(m));
+  addCampus(m);
+  list.forEach(l=>{ const ll=llById(l.ll); const t=tier(ll.overall);
+    const mk=L.marker(l.ll2,{riseOnHover:true,icon:L.divIcon({className:'',html:`<div class="kpin ${S.hover===l.id?'hl':''}" data-id="${l.id}" style="background:${SC[t]}">${ll.overall==null?'–':f1(ll.overall)}</div>`,iconSize:[30,30],iconAnchor:[15,15]})}).addTo(m);
+    mk.on('click',()=>openListing(l.id)); PINS[l.id]=mk; });
+}
+function nbColor(mt){ return mt>=80?'#1E5A43': mt>=60?'#E2A048':'#FFFFFF'; }
+function mountNbMap(){
+  const el=$('#nbmapEl'); if(!el||!GEO||!window.L) return;
+  const m=newMap(el,{center:[40.4445,-79.9380],zoom:el.clientWidth<520?12.75:13.5,parks:false});
+  addHoods(m,(ours)=>ours?{color:'#fff',weight:1.2,fillColor:nbColor(nbMatch(ours)),fillOpacity:.88}:{color:'#E7E0D6',weight:.8,fillColor:'#F6F2EC',fillOpacity:1},
+    ours=>{ const cnt=LISTINGS.filter(l=>l.nb===ours.id).length; if(cnt){ S.f={...S.f,budget:'any',commute:'any',nb:ours.id}; location.hash='explore'; } });
+  NB.forEach(n=>{ NBLABELS[n.id]=L.marker(n.ll,{interactive:false,zIndexOffset:300,icon:nbLabelIcon(n)}).addTo(m); });
+  addCampus(m);
+}
+function nbLabelIcon(n){ const mt=nbMatch(n); return L.divIcon({className:'',iconSize:[0,0],html:`<div class="mlabel ${mt>=60?'dark':'light'}">${n.name.replace('Squirrel Hill','Sq. Hill').replace(' North',' N').replace(' South',' S').replace('Central ','C. ')}<b>${mt}%</b></div>`}); }
+function updateNbMap(){
+  NB.forEach(n=>{ const mt=nbMatch(n); (NBLAYERS[n.id]||[]).forEach(l=>l.setStyle({fillColor:nbColor(mt)})); NBLABELS[n.id]&&NBLABELS[n.id].setIcon(nbLabelIcon(n)); });
+}
+function mountMaps(){ const r=route(); if(r==='explore') mountExploreMap(filtered()); else if(r==='neighborhoods') mountNbMap(); else if(MAP){ try{MAP.remove();}catch(e){} MAP=null; } }
+
+/* ---------------- filtering ---------------- */
+function filtered(){
+  let arr = LISTINGS.filter(l=>{
+    const f=S.f;
+    if(f.budget!=='any' && l.price>+f.budget) return false;
+    if(f.beds!=='any' && (f.beds==='4'? l.beds<4 : l.beds!=+f.beds)) return false;
+    if(f.commute!=='any' && commute(l).min>+f.commute) return false;
+    if(f.nb!=='any' && l.nb!==f.nb) return false;
+    return true;
+  });
+  const sc = l=> llById(l.ll).overall ?? -1;
+  if(S.f.sort==='score') arr.sort((a,b)=>sc(b)-sc(a) || a.price-b.price);
+  if(S.f.sort==='price') arr.sort((a,b)=>a.price-b.price);
+  if(S.f.sort==='commute') arr.sort((a,b)=>commute(a).min-commute(b).min);
+  return arr;
+}
+
+/* ---------------- views ---------------- */
+function viewHome(){
+  const top = [...lls()].filter(l=>l.overall!=null).sort((a,b)=>b.overall-a.overall).slice(0,4);
+  const stackIds=['maple-row','hilltop','jdoe'];
+  return `
+  <div class="wrap">
+    <section class="hero">
+      <div>
+        <h1>Know your <em>landlord</em><br>before you sign.</h1>
+        <p class="lead">Landlord scores from past student tenants near ${S.campus==='cmu'?'Carnegie Mellon':'Pitt'}: repairs, deposits, communication and fair pricing, on every listing.</p>
+        <div class="searchbox">
+          <div class="stabs"><button data-smode="place" class="${S.searchMode==='place'?'on':''}">Find a place</button><button data-smode="landlord" class="${S.searchMode==='landlord'?'on':''}">Look up a landlord</button></div>
+          <form class="srow" id="heroSearch">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="8" cy="8" r="6" stroke="#A39B91" stroke-width="1.8"/><path d="M12.5 12.5L16 16" stroke="#A39B91" stroke-width="1.8" stroke-linecap="round"/></svg>
+            <input id="heroQ" placeholder="${S.searchMode==='place'?'Neighborhood or street, e.g. Shadyside':'Landlord or property manager'}" autocomplete="off">
+            <button class="btn btn-primary" type="submit">Search</button>
+          </form>
+        </div>
+        <div class="suggest">Try:
+          ${S.searchMode==='place' ? ['Squirrel Hill North','Central Oakland','Shadyside'].map(n=>`<button data-try-nb="${NB.find(x=>x.name===n).id}">${n}</button>`).join('') :
+           ['Maple Row Rentals','Hilltop Property Co.'].map(n=>`<button data-try-ll="${LANDLORDS.find(x=>x.name===n).id}">${n}</button>`).join('')}
+        </div>
+      </div>
+      <div class="stack">
+        <div class="cap">Near ${campusName(S.campus)}, sorted by landlord</div>
+        ${stackIds.map(id=>{const l=llById(id); const lst=LISTINGS.find(x=>x.ll===id); const c=commute(lst); return `
+        <a class="mini" href="#landlord-${id}"><div><h4>${esc(l.name)}</h4><div class="sub">${nbById[lst.nb].name} · ${c.min} min ${c.mode}</div><span class="label ${tier(l.overall)}">${tierWord(l.overall)}</span></div><span class="score ${tier(l.overall)}">${f1(l.overall)}</span></a>`}).join('')}
+      </div>
+    </section>
+    <div class="stats">
+      <div class="stat"><b>74%</b><span>of students say past-tenant reviews would have changed their decision</span></div>
+      <div class="stat"><b>77%</b><span>hit at least one problem after signing: slow repairs, pests, surprise fees</span></div>
+      <div class="stat"><b>82%</b><span>spent under 30 minutes researching their landlord</span></div>
+    </div>
+
+    <section class="block">
+      <div class="sechead"><div><h2>Top-rated landlords</h2><p>Ranked by student tenants near ${campusName(S.campus)}</p></div><a href="#landlords" class="btn btn-line">See all landlords</a></div>
+      <div class="lgrid">${top.map(l=>`
+        <a class="lltile" href="#landlord-${l.id}">
+          <div style="display:flex;justify-content:space-between;align-items:start;gap:10px"><div><h4>${esc(l.name)}</h4><div class="sub">${l.n} tenant reviews</div></div><span class="score sm ${tier(l.overall)}">${f1(l.overall)}</span></div>
+          <q>${esc((l.reviews[0]||[''])[0])}</q>
+        </a>`).join('')}</div>
+    </section>
+
+    <section class="block">
+      <div class="sechead"><div><h2>How Keyhole works</h2></div></div>
+      <div class="steps">
+        <div class="step"><div class="n">1</div><h3>Search near campus</h3><p>Filter by budget, bedrooms and commute to ${campusName(S.campus)}. Every listing shows who you'd actually be renting from.</p></div>
+        <div class="step"><div class="n">2</div><h3>Check the landlord score</h3><p>One number from past tenants, broken into repairs, deposit back, communication and fair pricing.</p></div>
+        <div class="step"><div class="n">3</div><h3>Tour with confidence</h3><p>Shortlist the places worth touring, then leave a review when you move out so the next student knows.</p></div>
+      </div>
+    </section>
+
+    <section class="cta">
+      <div><h2>Rented off campus? Your review helps the next student.</h2><p>Anonymous, takes about 3 minutes.</p></div>
+      <a href="#review" class="btn">Write a review</a>
+    </section>
+  </div>`;
+}
+
+function sel(key, opts, labelFn){
+  const v=S.f[key];
+  return `<div class="fsel"><select data-f="${key}" class="${v!=='any'&&key!=='sort'?'set':''}">${opts.map(([val,lab])=>`<option value="${val}" ${String(v)===String(val)?'selected':''}>${lab}</option>`).join('')}</select></div>`;
+}
+function listingCard(l){
+  const ll=llById(l.ll), c=commute(l), n=nbById[l.nb];
+  return `<button class="lcard ${S.hover===l.id?'hl':''}" data-open="${l.id}">
+    ${thumb(l)}
+    <div style="min-width:0">
+      <div class="price">$${l.price}<small>/person · ${l.beds} bd · ${l.baths} ba</small></div>
+      <div class="sub">${n.name} · ${c.min} min ${c.mode} to ${campusName(S.campus)}</div>
+      <div class="ll"><span>${esc(ll.name)}</span>${ll.overall>=4.5?'<span class="fav">Student favorite</span>':''}</div>
+    </div>
+    <div class="right"><span class="score ${tier(ll.overall)}">${ll.overall==null?'–':f1(ll.overall)}</span><small>landlord</small></div>
+  </button>`;
+}
+function viewExplore(){
+  const list = filtered();
+  return `
+  <div class="filters"><div class="wrap">
+    ${sel('nb',[['any','All neighborhoods'],...NB.map(n=>[n.id,n.name])])}
+    ${sel('budget',[['any','Any budget'],['700','≤ $700/person'],['800','≤ $800/person'],['900','≤ $900/person'],['1000','≤ $1,000/person']])}
+    ${sel('beds',[['any','Any beds'],['1','1 bed'],['2','2 beds'],['3','3 beds'],['4','4+ beds']])}
+    ${sel('commute',[['any','Any commute'],['10','≤ 10 min'],['15','≤ 15 min'],['20','≤ 20 min']])}
+    <div class="sortpill">${sel('sort',[['score','Sort: landlord score'],['price','Sort: price'],['commute','Sort: commute']])}</div>
+  </div></div>
+  <div class="wrap explore">
+    <div>
+      <div class="resultsHead"><h2>${S.f.nb!=='any'?nbById[S.f.nb].name:'Near '+(S.campus==='cmu'?'Carnegie Mellon':'Pitt')} · Aug 2027</h2><span>${list.length} place${list.length===1?'':'s'}</span></div>
+      <div class="list" id="list">${list.length? list.map(listingCard).join('') : `<div class="empty">Nothing matches those filters yet.<br><button class="btn btn-ghost" style="margin-top:14px" data-clear>Clear filters</button></div>`}</div>
+    </div>
+    <div class="mapbox" id="mapbox"><div id="lmap" class="kmap"></div>
+      <div class="maplegend" style="z-index:500"><span><i style="background:var(--green)"></i>Great 4+</span><span><i style="background:var(--amber)"></i>Mixed</span><span><i style="background:var(--terra)"></i>Poor</span></div>
+    </div>
+  </div>`;
+}
+
+function barRow(lab,v){ const p = v==null?0:(v/5*100); return `<div class="bar"><span>${lab}</span><div class="track"><div class="fill ${tier(v)}" style="width:${p}%"></div></div><b>${v==null?'–':f1(v)}</b></div>`; }
+function reviewCard(r){
+  if(r.community) return `<div class="rev"><div class="rtop"><span class="pending">● Student review · not yet verified</span><span>${esc(r.years||'')} ${r.mine?'<span class="newtag">Yours</span>':'<span class="newtag">New</span>'}</span></div>
+    <p>${esc(r.text)}</p><div class="rcats">${CATS.map(([k,lab])=>`<span class="chip">${lab} ${r[k]}</span>`).join('')}${r.again!=null?`<span class="chip">${r.again?'Would rent again':'Would not rent again'}</span>`:''}</div></div>`;
+  return `<div class="rev"><div class="rtop"><span class="verified"><svg width="13" height="13" viewBox="0 0 14 14"><circle cx="7" cy="7" r="7" fill="#1E5A43"/><path d="M4 7.2l2 2 4-4.2" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>Verified ${r.campus==='pitt'?'Pitt':'CMU'} tenant</span><span>${r.years} · ${'★'.repeat(r.stars)}${'☆'.repeat(5-r.stars)}</span></div><p>“${esc(r.text)}”</p></div>`;
+}
+function viewLandlord(id){
+  const l = llById(id);
+  if(!l) return `<div class="wrap"><a class="back" href="#landlords">‹ All landlords</a><div class="empty">We couldn't find that landlord.</div></div>`;
+  const listings = LISTINGS.filter(x=>x.ll===id);
+  const seedRevs = (l.reviews||[]).map(([text,campus,years,stars])=>({text,campus,years,stars}));
+  const comm = l.community.map(r=>({...r,community:true,mine:r.uid&&r.uid===UID})).sort((a,b)=>(b.ts||0)-(a.ts||0));
+  return `<div class="wrap">
+    <a class="back" href="#explore">‹ Back to places</a>
+    <div class="llhead">
+      <div>
+        <span class="chip">${esc(l.kind)}</span>
+        <h1 style="margin-top:14px">${esc(l.name)}</h1>
+        <div class="meta">${l.buildings?`${l.buildings} buildings near campus · `:''}${listings.length} open listing${listings.length===1?'':'s'} on Keyhole</div>
+        <div style="display:flex;gap:10px;margin-top:24px;flex-wrap:wrap">
+          <a href="#review" class="btn btn-primary" data-review-for="${l.id}">Review this landlord</a>
+          ${listings.length?`<button class="btn btn-ghost" data-see-ll="${l.id}">See ${listings.length} open listing${listings.length===1?'':'s'}</button>`:''}
+        </div>
+      </div>
+      <div class="scorecard">
+        <div class="scoretop"><div class="big">${l.overall==null?'–':f1(l.overall)}</div><div><span class="label ${tier(l.overall)}">${tierWord(l.overall)}</span><div style="font-size:13px;color:var(--muted);margin-top:6px">${l.seed?`${l.seed.n} verified tenants`:''}${l.newN?`${l.seed?' · ':''}${l.newN} new review${l.newN===1?'':'s'}`:''}</div></div></div>
+        <div class="bars">${CATS.map(([k,lab])=>barRow(lab,l[k])).join('')}</div>
+        ${l.again!=null?`<div class="again"><b>${Math.round(l.again*100)}%</b> of tenants would rent from them again</div>`:''}
+      </div>
+    </div>
+    <div class="tabsec">
+      <div><h3 class="tight" style="font-size:22px;font-weight:600;margin-bottom:14px">What tenants say</h3>
+        <div class="reviews">${[...comm,...seedRevs].map(reviewCard).join('') || '<div class="empty">No written reviews yet.</div>'}</div>
+      </div>
+      <div class="side"><h3>Open listings</h3><div class="list">${listings.length? listings.map(listingCard).join('') : '<div class="empty" style="padding:24px">No open listings right now.</div>'}</div></div>
+    </div>
+    <div style="height:56px"></div>
+  </div>`;
+}
+
+function viewLandlords(){
+  const q = S.dirQ.trim().toLowerCase();
+  const arr = lls().filter(l=>!q || l.name.toLowerCase().includes(q)).sort((a,b)=>(b.overall??-1)-(a.overall??-1));
+  return `<div class="wrap">
+    <div class="dirsearch"><h1>Landlords near ${campusName(S.campus)}</h1>
+      <form class="inputpill" id="dirForm"><svg width="16" height="16" viewBox="0 0 18 18" fill="none"><circle cx="8" cy="8" r="6" stroke="#A39B91" stroke-width="1.8"/><path d="M12.5 12.5L16 16" stroke="#A39B91" stroke-width="1.8" stroke-linecap="round"/></svg><input id="dirQ" placeholder="Search landlords" value="${esc(S.dirQ)}" autocomplete="off"></form>
+    </div>
+    <div class="dirlist">
+      <div class="dirhead"><span></span><span>Landlord</span><span>Repairs</span><span>Deposit back</span><span>Would rent again</span><span></span></div>
+      ${arr.map(l=>`<a class="dirrow" href="#landlord-${l.id}"><span class="score sm ${tier(l.overall)}">${l.overall==null?'–':f1(l.overall)}</span><div><h4>${esc(l.name)}</h4><div class="sub">${esc(l.kind)} · ${l.n} review${l.n===1?'':'s'}</div></div><div class="kv"><b>${l.repairs==null?'–':f1(l.repairs)}</b></div><div class="kv"><b>${l.deposit==null?'–':f1(l.deposit)}</b></div><div class="kv"><b>${l.again==null?'–':Math.round(l.again*100)+'%'}</b></div><span style="color:var(--faint)">›</span></a>`).join('') || '<div class="empty" style="border:0">No landlords match. <a href="#review" style="text-decoration:underline">Add one with a review</a>.</div>'}
+    </div>
+  </div>`;
+}
+
+function refreshNb(){ const ranked=NB.map(n=>({...n,m:nbMatch(n)})).sort((a,b)=>b.m-a.m); const el=$('#nblist'); if(el) el.innerHTML=nbListHTML(ranked); updateNbMap(); }
+function nbMatch(n){
+  const P=S.nbPrefs; const [mins]=n[S.campus];
+  const budget = n.rent<=P.budget?1: Math.max(0,1-(n.rent-P.budget)/250);
+  const com = mins<=P.commute?1: Math.max(0,1-(mins-P.commute)/12);
+  const pr = P.prios.length? P.prios.filter(p=>n.tags.includes(p)).length/P.prios.length : 1;
+  return Math.round(100*(0.35*budget+0.3*com+0.35*pr));
+}
+function viewNeighborhoods(){
+  const P=S.nbPrefs;
+  const ranked = NB.map(n=>({...n,m:nbMatch(n)})).sort((a,b)=>b.m-a.m);
+  const pct=(v,a,b)=>((v-a)/(b-a)*100)+'%';
+  return `<div class="wrap nbgrid">
+    <aside class="panel">
+      <h1>Find your neighborhood</h1>
+      <p>Tell us what matters. We'll match neighborhoods near ${campusName(S.campus)}.</p>
+      <div class="ctrl"><div class="lab">Budget per person <span id="bv">$${P.budget}</span></div><input type="range" min="600" max="1200" step="25" value="${P.budget}" data-nbp="budget" style="--p:${pct(P.budget,600,1200)}"></div>
+      <div class="ctrl"><div class="lab">Max commute to campus <span id="cv">${P.commute} min</span></div><input type="range" min="5" max="30" step="1" value="${P.commute}" data-nbp="commute" style="--p:${pct(P.commute,5,30)}"></div>
+      <div class="ctrl"><div class="lab">What matters most</div><div class="prios">${PRIOS.map(([k,lab])=>`<button data-prio="${k}" class="${P.prios.includes(k)?'on':''}">${lab}</button>`).join('')}</div><div class="hint">Pick up to 3</div></div>
+    </aside>
+    <div>
+      <div class="nbmap"><div id="nbmapEl" class="kmap"></div></div>
+      <div class="nblist" id="nblist">${nbListHTML(ranked)}</div>
+    </div>
+  </div>`;
+}
+function nbListHTML(ranked){ return ranked.map((n,i)=>{const cnt=LISTINGS.filter(l=>l.nb===n.id).length; const [mins,mode]=n[S.campus]; return `
+        <div class="nbcard ${i===0?'top1':''}"><div class="top"><h4>${n.name}</h4><span class="match">${n.m}% match</span></div>
+        <p>${n.blurb}</p>
+        <div class="facts"><span class="chip">~$${n.rent}/person</span><span class="chip">${mins} min ${mode}</span>${n.tags.slice(0,3).map(t=>`<span class="chip">${PRIOS.find(p=>p[0]===t)[1]}</span>`).join('')}</div>
+        ${cnt?`<button class="btn ${i===0?'btn-green':'btn-ghost'}" data-see-nb="${n.id}">Show ${cnt} listing${cnt===1?'':'s'} here</button>`:''}</div>`}).join(''); }
+
+let RV = null;
+function newRV(llId){ return {ll: llId||'', newName:'', nb:'', campus:S.campus, years:'2025–26', overall:0, repairs:0, deposit:0, comm:0, pricing:0, again:null, text:'', err:'', done:false, saving:false}; }
+function viewReview(){
+  if(!RV) RV=newRV();
+  if(RV.done) return `<div class="formwrap"><div class="fcard done"><div class="tick"><svg width="28" height="28" viewBox="0 0 28 28"><path d="M7 14.5l5 5 9-10" stroke="currentColor" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    <h1 style="font-size:32px">Thank you. That helps.</h1><p style="color:var(--muted);margin:10px 0 24px">${RV.savedLocal?'For this preview, your review is saved in this browser only. Shared reviews are coming soon.':'Your review is live on the landlord\'s page. We\'ll mark it verified once we confirm your tenancy.'}</p>
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap"><a class="btn btn-primary" href="#landlord-${RV.savedId}">See it on the landlord page</a><button class="btn btn-ghost" data-review-again>Review another place</button></div></div></div>`;
+  const opts = [...lls()].sort((a,b)=>a.name.localeCompare(b.name));
+  const dots = k=>`<div class="dots" role="radiogroup">${[1,2,3,4,5].map(v=>`<button type="button" data-rate="${k}" data-v="${v}" class="${RV[k]>=v?'on':''}" aria-label="${v} of 5">${v}</button>`).join('')}</div>`;
+  return `<div class="formwrap">
+    <h1>Review your landlord</h1>
+    <p>Anonymous. Other students see your ratings and words, never your name.</p>
+    <form class="fcard" id="rvForm" novalidate>
+      <div class="field"><label class="t" for="rvLL">Who was your landlord?</label>
+        <select id="rvLL"><option value="">Choose a landlord</option>${opts.map(l=>`<option value="${l.id}" ${RV.ll===l.id?'selected':''}>${esc(l.name)}</option>`).join('')}<option value="__new" ${RV.ll==='__new'?'selected':''}>Someone not listed…</option></select>
+        ${RV.ll==='__new'?`<input type="text" id="rvNew" style="margin-top:10px" placeholder="Landlord or company name" value="${esc(RV.newName)}">`:''}
+      </div>
+      <div class="two">
+        <div class="field"><label class="t" for="rvNb">Neighborhood</label><select id="rvNb"><option value="">Choose</option>${NB.map(n=>`<option value="${n.id}" ${RV.nb===n.id?'selected':''}>${n.name}</option>`).join('')}</select></div>
+        <div class="field"><label class="t" for="rvYears">When did you live there?</label><select id="rvYears">${['2026–27','2025–26','2024–25','2023–24','Earlier'].map(y=>`<option ${RV.years===y?'selected':''}>${y}</option>`).join('')}</select></div>
+      </div>
+      <div class="field"><label class="t">Your school</label><div class="yn"><button type="button" data-camp="cmu" class="${RV.campus==='cmu'?'on':''}">CMU</button><button type="button" data-camp="pitt" class="${RV.campus==='pitt'?'on':''}">Pitt</button><button type="button" data-camp="other" class="${RV.campus==='other'?'on':''}">Other</button></div></div>
+      <div class="field"><label class="t">Rate them, 1 to 5</label>
+        <div class="rate"><div class="nm">Overall</div>${dots('overall')}</div>
+        ${CATS.map(([k,lab,help])=>`<div class="rate"><div class="nm">${lab}<small>${help}</small></div>${dots(k)}</div>`).join('')}
+      </div>
+      <div class="field"><label class="t">Would you rent from them again?</label><div class="yn"><button type="button" data-again="1" class="${RV.again===true?'on':''}">Yes</button><button type="button" data-again="0" class="${RV.again===false?'on':''}">No</button></div></div>
+      <div class="field"><label class="t" for="rvText">What should the next tenant know?</label><textarea id="rvText" maxlength="600" placeholder="Repairs, the deposit, surprise fees, how they treated you…">${esc(RV.text)}</textarea><div class="help">Stick to your own experience. Please don't include names or contact details.</div></div>
+      ${RV.err?`<div class="err">${esc(RV.err)}</div>`:''}
+      <button class="btn btn-primary" type="submit" style="align-self:flex-start;padding:13px 24px" ${RV.saving?'disabled':''}>${RV.saving?'Posting…':'Post review'}</button>
+    </form>
+  </div>`;
+}
+
+let INS=null;
+function viewInsights(){
+  return `<div class="wrap ins"><h1>Team insights</h1><p>Live counts for MVP Test 1 (does the score change the pick?) and Test 2 (do renters review without pay?).</p><div id="insBody"><div class="empty">Loading…</div></div></div>`;
+}
+async function loadInsights(){
+  const box=$('#insBody'); if(!box) return;
+  if(!DB){ box.innerHTML=`<div class="empty">Team insights need a shared database, which this version doesn't have yet.</div>`; return; }
+  const can = USER && (USER.canEdit?.() || USER.isOwner?.());
+  if(!can){ box.innerHTML=`<div class="empty">This page is for the Keyhole team.</div>`; return; }
+  try{
+    const ps = await DB.collection('picks').get();
+    const picks = docsOf(ps).flatMap(d=>(dataOf(d)?.items||[]));
+    const testers = docsOf(ps).length;
+    const revs = S.community;
+    const reviewers = new Set(revs.map(r=>r.uid)).size;
+    const top = picks.filter(p=>p.pickedScore!=null && p.pickedScore>=p.topScoreShown-0.001).length;
+    const pctTop = picks.length? Math.round(top/picks.length*100):null;
+    box.innerHTML = `<div class="kpis">
+      <div class="kpi"><div class="k">Test 1 · Picked the highest-rated landlord shown</div><div class="v">${pctTop==null?'–':pctTop+'%'}</div><div class="pass">Pass: 60%+ · ${picks.length} tour pick${picks.length===1?'':'s'} from ${testers} tester${testers===1?'':'s'}</div></div>
+      <div class="kpi"><div class="k">Test 2 · Reviews submitted</div><div class="v">${revs.length}</div><div class="pass">From ${reviewers} student${reviewers===1?'':'s'} · Pass: 40%+ of people sent the form submit in 7 days</div></div>
+      <div class="kpi"><div class="k">Avg landlord score of tour picks</div><div class="v">${picks.length?f1(picks.reduce((a,p)=>a+(p.pickedScore||0),0)/picks.length):'–'}</div><div class="pass">vs ${f1(lls().filter(l=>l.overall!=null).reduce((a,l)=>a+l.overall,0)/lls().filter(l=>l.overall!=null).length)} average across landlords</div></div>
+    </div>
+    <h3 class="tight" style="font-size:20px;margin:28px 0 8px">Latest tour picks</h3>
+    <table class="tbl"><tr><th>When</th><th>Listing</th><th>Landlord score</th><th>Best score shown</th><th>Sorted by</th></tr>
+    ${picks.sort((a,b)=>b.ts-a.ts).slice(0,20).map(p=>{const l=LISTINGS.find(x=>x.id===p.listingId); return `<tr><td>${new Date(p.ts).toLocaleString()}</td><td>${l?`$${l.price} · ${nbById[l.nb].name}`:p.listingId}</td><td>${p.pickedScore==null?'–':f1(p.pickedScore)}</td><td>${f1(p.topScoreShown)}</td><td>${p.sort}</td></tr>`}).join('') || '<tr><td colspan="5" style="color:var(--muted)">No picks yet.</td></tr>'}</table>`;
+  }catch(e){ box.innerHTML=`<div class="empty">Couldn't load insights (${esc(e.message||e)}).</div>`; }
+}
+
+/* ---------------- modal ---------------- */
+function openListing(id){
+  const l=LISTINGS.find(x=>x.id===id); if(!l) return;
+  const ll=llById(l.ll), c=commute(l), n=nbById[l.nb], other=commute(l, S.campus==='cmu'?'pitt':'cmu');
+  const onTour=S.tour.has(id);
+  $('#modal').innerHTML = `<div class="hero-img">${thumb(l,560,200)}<button class="x" data-close aria-label="Close"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M2 2l10 10M12 2L2 12" stroke="#1B1916" stroke-width="1.8" stroke-linecap="round"/></svg></button></div>
+  <div class="body">
+    <h2>$${l.price}<span style="font-size:16px;color:var(--muted);font-weight:500">/person</span></h2>
+    <div class="sub">${l.beds} bed · ${l.baths} bath · ${l.street}, ${n.name} · Available Aug 2027</div>
+    <div class="facts3"><div><b>${c.min} min</b>${c.mode} to ${campusName(S.campus)}</div><div><b>${other.min} min</b>${other.mode} to ${S.campus==='cmu'?'Pitt':'CMU'}</div><div><b>$${(l.price*l.beds).toLocaleString()}</b>total / month</div></div>
+    <div class="llbox"><span class="score ${tier(ll.overall)}">${ll.overall==null?'–':f1(ll.overall)}</span><div style="flex:1"><h4>${esc(ll.name)}</h4><div class="sub" style="color:var(--muted)">${tierWord(ll.overall)} · ${ll.n} tenant reviews</div>
+      <div class="mini-bars">${CATS.map(([k,lab])=>`<span>${lab} <b>${ll[k]==null?'–':f1(ll[k])}</b></span>`).join('')}</div></div></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px">${l.tags.map(t=>`<span class="chip">${t}</span>`).join('')}</div>
+    <div class="mactions"><a class="btn btn-ghost" href="#landlord-${ll.id}" data-close>Landlord reviews</a><button class="btn ${onTour?'btn-green':'btn-primary'}" data-tour="${id}">${onTour?'✓ On your tour list':'I\'d tour this first'}</button></div>
+  </div>`;
+  $('#scrim').classList.add('open');
+}
+function closeModal(){ $('#scrim').classList.remove('open'); }
+
+/* ---------------- db ---------------- */
+const dataOf = s => s==null?null: (typeof s.data==='function'? s.data(): (s.exists===false?null:s));
+const docsOf = s => Array.isArray(s)? s : (s&&s.docs? s.docs : []);
+function idOf(d){ return d && (d.id || (d.ref&&d.ref.id)); }
+
+async function initDB(){
+  if(!(window.claude && typeof claude.use==='function')){ S.dbState='offline'; loadLocal(); render(); return; }
+  try{
+    [USER, DB] = await Promise.all([claude.use('user'), claude.use('db')]);
+    if(USER && USER.id) UID = await USER.id();
+  }catch(e){ DB=null; }
+  if(!DB || !UID){ S.dbState='offline'; loadLocal(); render(); return; }
+  const timer = setTimeout(()=>{ if(S.dbState==='loading'){ S.dbState='offline'; render(); } },10000);
+  try{
+    DB.collection('reviews').onSnapshot(snap=>{
+      clearTimeout(timer); S.dbState='live';
+      const all=[]; docsOf(snap).forEach(d=>{ const uid=idOf(d); (dataOf(d)?.items||[]).forEach(it=>all.push({...it,uid})); });
+      S.community = all; S.myReviews = all.filter(r=>r.uid===UID).map(({uid,...r})=>r);
+      invalidate(); softRender();
+    }, err=>{ clearTimeout(timer); S.dbState='offline'; });
+    DB.doc('picks/'+UID).get().then(s=>{ const d=dataOf(s); S.myPicks=d?.items||[]; S.myPicks.forEach(p=>S.tour.add(p.listingId)); }).catch(()=>{});
+  }catch(e){ clearTimeout(timer); S.dbState='offline'; }
+}
+function loadLocal(){ try{ const r=JSON.parse(localStorage.getItem('keyhole_reviews')||'[]'); S.community=r.map(x=>({...x,uid:'local'})); UID=UID||'local'; invalidate(); }catch(e){} }
+
+let writing=Promise.resolve();
+async function saveReview(item){
+  if(DB && UID && S.dbState!=='offline'){
+    const items=[...S.myReviews, item];
+    await DB.doc('reviews/'+UID).set({items});
+    return 'db';
+  }
+  try{ const r=JSON.parse(localStorage.getItem('keyhole_reviews')||'[]'); r.push(item); localStorage.setItem('keyhole_reviews',JSON.stringify(r)); }catch(e){}
+  S.community.push({...item,uid:'local'}); invalidate(); return 'local';
+}
+function savePick(p){
+  S.myPicks.push(p);
+  if(!(DB&&UID)) return;
+  const items=[...S.myPicks];
+  writing = writing.then(()=>DB.doc('picks/'+UID).set({items})).catch(()=>{});
+}
+
+/* ---------------- router/render ---------------- */
+function route(){ return (location.hash||'#home').slice(1) || 'home'; }
+function render(){
+  const r=route(); const app=$('#app');
+  document.querySelectorAll('[data-nav]').forEach(a=>a.classList.toggle('on', r===a.dataset.nav || (a.dataset.nav==='landlords'&&r.startsWith('landlord-'))));
+  if(r==='explore') app.innerHTML=viewExplore();
+  else if(r==='landlords') app.innerHTML=viewLandlords();
+  else if(r.startsWith('landlord-')) app.innerHTML=viewLandlord(r.slice(9));
+  else if(r==='neighborhoods') app.innerHTML=viewNeighborhoods();
+  else if(r==='review') app.innerHTML=viewReview();
+  else if(r==='insights'){ app.innerHTML=viewInsights(); loadInsights(); }
+  else app.innerHTML=viewHome();
+  mountMaps();
+}
+function softRender(){ // re-render without losing scroll, skip if typing in review form
+  const r=route(); if(r==='review' && !RV?.done) return; const y=scrollY; render(); scrollTo(0,y);
+}
+window.addEventListener('hashchange',()=>{ $('#navlinks').classList.remove('open'); closeModal(); render(); scrollTo(0,0); });
+
+/* ---------------- events ---------------- */
+document.addEventListener('click',e=>{
+  if(e.target.closest('.leaflet-container')&&!e.target.closest('button,a')) return;
+  const t=e.target.closest('button,a,[data-id]'); if(!t) return;
+  const d=t.dataset;
+  if(t.closest('#campusToggle') && d.c){ S.campus=d.c; document.querySelectorAll('#campusToggle button').forEach(b=>b.classList.toggle('on',b.dataset.c===d.c)); softRender(); return; }
+  if(t.id==='menuBtn'){ $('#navlinks').classList.toggle('open'); return; }
+  if(d.smode){ S.searchMode=d.smode; render(); setTimeout(()=>$('#heroQ')?.focus(),0); return; }
+  if(d.tryNb){ S.f.nb=d.tryNb; location.hash='explore'; return; }
+  if(d.tryLl){ location.hash='landlord-'+d.tryLl; return; }
+  if(d.open){ openListing(d.open); return; }
+  if('close' in d){ closeModal(); return; }
+  if(d.tour){
+    const id=d.tour; if(S.tour.has(id)){ toast('Already on your tour list'); return; }
+    S.tour.add(id);
+    const shown = route()==='explore'? filtered() : LISTINGS.filter(x=>x.ll===LISTINGS.find(y=>y.id===id).ll);
+    const l=LISTINGS.find(x=>x.id===id);
+    savePick({listingId:id, landlordId:l.ll, pickedScore:llById(l.ll).overall, topScoreShown:Math.max(...shown.map(x=>llById(x.ll).overall??0)), shownCount:shown.length, sort:S.f.sort, from:route().startsWith('landlord-')?'landlord':route(), campus:S.campus, ts:Date.now()});
+    openListing(id); toast('Added to your tour list'); return;
+  }
+  if('clear' in d){ S.f={budget:'any',beds:'any',commute:'any',sort:S.f.sort,nb:'any'}; render(); return; }
+  if(d.seeLl){ S.f={budget:'any',beds:'any',commute:'any',sort:'score',nb:'any'}; location.hash='explore'; return; }
+  if(d.seeNb){ S.f={...S.f, budget:'any', commute:'any', nb:d.seeNb}; location.hash='explore'; return; }
+  if(d.reviewFor){ RV=newRV(d.reviewFor); return; }
+  if('reviewAgain' in d){ RV=newRV(); render(); scrollTo(0,0); return; }
+  if(d.prio){ const P=S.nbPrefs.prios; const i=P.indexOf(d.prio); if(i>=0) P.splice(i,1); else { if(P.length>=3) P.shift(); P.push(d.prio);} document.querySelectorAll('[data-prio]').forEach(b=>b.classList.toggle('on',P.includes(b.dataset.prio))); refreshNb(); return; }
+  // review form controls
+  if(d.rate){ RV[d.rate]=+d.v; t.parentElement.querySelectorAll('button').forEach(b=>b.classList.toggle('on',+b.dataset.v<=+d.v)); return; }
+  if(d.camp){ RV.campus=d.camp; t.parentElement.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b===t)); return; }
+  if(d.again){ RV.again=d.again==='1'; t.parentElement.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b===t)); return; }
+});
+$('#scrim').addEventListener('click',e=>{ if(e.target.id==='scrim') closeModal(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
+
+document.addEventListener('change',e=>{
+  const t=e.target;
+  if(t.dataset.f){ S.f[t.dataset.f]=t.value; render(); return; }
+  if(t.id==='rvLL'){ RV.ll=t.value; syncRV(); render(); if(RV.ll==='__new') setTimeout(()=>$('#rvNew')?.focus(),0); return; }
+  if(t.id==='rvNb') RV.nb=t.value;
+  if(t.id==='rvYears') RV.years=t.value;
+});
+document.addEventListener('input',e=>{
+  const t=e.target;
+  if(t.dataset.nbp){ const k=t.dataset.nbp; S.nbPrefs[k]=+t.value; refreshNb(); const lo=+t.min, hi=+t.max; t.style.setProperty('--p',((+t.value-lo)/(hi-lo)*100)+'%'); $('#bv').textContent='$'+S.nbPrefs.budget; $('#cv').textContent=S.nbPrefs.commute+' min'; return; }
+  if(t.id==='rvText') RV.text=t.value;
+  if(t.id==='rvNew') RV.newName=t.value;
+  if(t.id==='dirQ'){ S.dirQ=t.value; const pos=t.selectionStart; render(); const n=$('#dirQ'); n.focus(); n.setSelectionRange(pos,pos); }
+});
+function syncRV(){ const g=id=>$(id); if(g('#rvText')) RV.text=g('#rvText').value; if(g('#rvNew')) RV.newName=g('#rvNew').value; if(g('#rvNb')) RV.nb=g('#rvNb').value; if(g('#rvYears')) RV.years=g('#rvYears').value; }
+
+document.addEventListener('submit',async e=>{
+  e.preventDefault();
+  const t=e.target;
+  if(t.id==='heroSearch'){
+    const q=$('#heroQ').value.trim().toLowerCase();
+    if(S.searchMode==='landlord'){ S.dirQ=q; location.hash='landlords'; return; }
+    const nb = NB.find(n=>n.name.toLowerCase().includes(q) || (q&&q.includes(n.name.toLowerCase().split(' ')[0])));
+    const st = LISTINGS.find(l=>q && l.street.toLowerCase().includes(q));
+    S.f.nb = nb? nb.id : st? st.nb : 'any';
+    location.hash='explore'; if(route()==='explore') render(); return;
+  }
+  if(t.id==='dirForm') return;
+  if(t.id==='rvForm'){
+    syncRV();
+    const miss = !RV.ll ? 'Choose your landlord.' : (RV.ll==='__new' && RV.newName.trim().length<2) ? 'Add the landlord\'s name.' : !RV.nb ? 'Choose the neighborhood.' :
+      ['overall',...CATS.map(c=>c[0])].some(k=>!RV[k]) ? 'Rate all five, 1 to 5.' : RV.again==null ? 'Tell us if you\'d rent from them again.' : RV.text.trim().length<20 ? 'Write a sentence or two (20+ characters) for the next tenant.' : '';
+    if(miss){ RV.err=miss; render(); $('.err')?.scrollIntoView({block:'center',behavior:'smooth'}); return; }
+    const isNew = RV.ll==='__new';
+    const name = RV.newName.trim();
+    const existing = isNew && lls().find(l=>l.name.toLowerCase()===name.toLowerCase());
+    const landlordId = isNew ? (existing? existing.id : 'c-'+slug(name)) : RV.ll;
+    const item = {id:'r'+Date.now().toString(36), landlordId, landlordName: isNew&&!existing? name : null, nb:RV.nb, campus:RV.campus, years:RV.years,
+      overall:RV.overall, repairs:RV.repairs, deposit:RV.deposit, comm:RV.comm, pricing:RV.pricing, again:RV.again, text:RV.text.trim().slice(0,600), ts:Date.now()};
+    RV.saving=true; RV.err=''; render();
+    try{
+      const where = await saveReview(item);
+      RV.saving=false; RV.done=true; RV.savedId=landlordId; RV.savedLocal = where==='local'; render(); scrollTo(0,0);
+    }catch(err){ RV.saving=false; RV.err='Couldn\'t post your review ('+(err.message||'try again')+'). Your answers are still here.'; render(); }
+  }
+});
+
+/* hover sync list <-> map */
+document.addEventListener('mouseover',e=>{
+  const c=e.target.closest('.lcard[data-open], .kpin'); const id=c? (c.dataset.open||c.dataset.id) : null;
+  if(id===S.hover) return; S.hover=id;
+  document.querySelectorAll('.kpin').forEach(p=>p.classList.toggle('hl',p.dataset.id===id));
+  document.querySelectorAll('.lcard[data-open]').forEach(p=>p.classList.toggle('hl',p.dataset.open===id));
+  Object.entries(PINS).forEach(([k,mk])=>mk.setZIndexOffset(k===id?1000:0));
+});
+
+render();
+initDB();
+</script>
+</body>
+</html>
